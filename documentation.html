@@ -3,100 +3,729 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FTC Robot Documentation</title>
+    <title>FTC Dead Wheel Odometry Guide</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f0f0f0;
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --background: #f8fafc;
+            --card: #ffffff;
+            --code-bg: #f1f5f9;
+            --border: #e2e8f0;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
         }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--background);
+        }
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            padding: 2rem;
         }
-        .title {
-            color: #333;
-            margin-bottom: 20px;
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .header p {
+            color: var(--text-light);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .navigation {
+            position: sticky;
+            top: 0;
+            background: var(--card);
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+        }
+
+        .nav-list {
+            display: flex;
+            gap: 1rem;
+            list-style: none;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .nav-link {
+            color: var(--text-light);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: var(--code-bg);
+            color: var(--primary);
+        }
+
+        .section {
+            background: var(--card);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: var(--primary);
+            font-size: 1.875rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .section h3 {
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            color: var(--text);
+        }
+
+        .section p {
+            margin-bottom: 1rem;
+            color: var(--text-light);
+        }
+
+        .steps {
+            list-style: none;
+            counter-reset: step;
+            margin: 1.5rem 0;
+        }
+
+        .steps li {
+            position: relative;
+            padding: 1.5rem 1.5rem 1.5rem 3rem;
+            margin-bottom: 1rem;
+            background: var(--code-bg);
+            border-radius: 0.5rem;
+        }
+
+        .steps li::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 1rem;
+            top: 1.5rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .info-box {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0.5rem;
+            border-left: 4px solid;
+        }
+
+        .info-box.note {
+            background: #dbeafe;
+            border-left-color: var(--primary);
+        }
+
+        .info-box.warning {
+            background: #fef3c7;
+            border-left-color: var(--warning);
+        }
+
+        .info-box.tip {
+            background: #dcfce7;
+            border-left-color: var(--success);
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+
+        .image-container {
+            margin: 2rem 0;
             text-align: center;
         }
-        .documentation {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+
+        .image-container img {
+            max-width: 100%;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .documentation h2 {
-            color: #1976D2;
+
+        .caption {
+            margin-top: 0.5rem;
+            color: var(--text-light);
+            font-size: 0.875rem;
         }
-        .documentation ul {
-            padding-left: 20px;
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
         }
-        .documentation li {
-            margin-bottom: 10px;
+
+        th, td {
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            text-align: left;
         }
-        code {
-            background-color: #f5f5f5;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: monospace;
+
+        th {
+            background: var(--code-bg);
+            font-weight: 600;
         }
+
         .button {
             display: inline-block;
-            padding: 15px 30px;
-            font-size: 18px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            background-color: #2196F3;
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
             color: white;
             text-decoration: none;
-            margin-top: 20px;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
         }
+
         .button:hover {
-            background-color: #1976D2;
+            background: var(--primary-dark);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .steps li {
+                padding: 1rem 1rem 1rem 2.5rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1 class="title">FTC Robot Documentation</h1>
-        
-        <div class="documentation">
-            <h2>Dead Wheel Odometry Setup Guide</h2>
-            <h3>Hardware Setup:</h3>
-            <ul>
-                <li>Mount three dead wheels perpendicular to each other (two parallel, one perpendicular)</li>
-                <li>Connect encoders to the REV Control Hub:
-                    <ul>
-                        <li>Left encoder: Port 0</li>
-                        <li>Right encoder: Port 1</li>
-                        <li>Center encoder: Port 2</li>
-                    </ul>
-                </li>
-                <li>Ensure wheels maintain constant contact with the ground</li>
-            </ul>
-            
-            <h3>Software Configuration:</h3>
-            <ul>
-                <li>Add the following to your <code>build.dependencies.gradle</code>:
-                    <pre><code>implementation 'com.acmerobotics.roadrunner:core:0.5.5'</code></pre>
-                </li>
-                <li>Configure your robot's drive constants in <code>DriveConstants.java</code></li>
-                <li>Run the training sequences in order:
-                    <ol>
-                        <li>Forward/Backward Test</li>
-                        <li>Lateral Movement Test</li>
-                        <li>Angular Velocity Test</li>
-                        <li>Full Calibration Test</li>
-                    </ol>
-                </li>
+    <header class="header">
+        <div class="container">
+            <h1>FTC Dead Wheel Odometry Guide</h1>
+            <p>Complete guide for setting up and calibrating dead wheel odometry for FTC robots</p>
+        </div>
+    </header>
+
+    <nav class="navigation">
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="#overview" class="nav-link">Overview</a></li>
+                <li><a href="#hardware" class="nav-link">Hardware Setup</a></li>
+                <li><a href="#software" class="nav-link">Software Setup</a></li>
+                <li><a href="#calibration" class="nav-link">Calibration</a></li>
+                <li><a href="#troubleshooting" class="nav-link">Troubleshooting</a></li>
             </ul>
         </div>
+    </nav>
+
+    <main class="container">
+        <section id="overview" class="section">
+            <h2>Overview</h2>
+            <p>Dead wheel odometry is a precise positioning system that uses unpowered wheels with encoders to track the robot's position and orientation on the field. This system provides more accurate tracking compared to drive wheel encoders because the wheels don't slip during acceleration or deceleration.</p>
+            
+            <div class="info-box note">
+                <strong>Note:</strong> This guide assumes you're using GoBilda encoders with through-bore encoders (8192 ticks/rev), but the principles apply to other encoder types with appropriate modifications.
+            </div>
+        </section>
+
+        <section id="hardware" class="section">
+            <h2>Hardware Setup</h2>
+            
+            <h3>Required Components</h3>
+            <ul class="steps">
+                <li>3x Dead wheels (38mm GoBilda tracking wheels recommended)</li>
+                <li>3x Through-bore encoders (GoBilda)</li>
+                <li>2x Parallel pods for left/right wheels</li>
+                <li>1x Perpendicular pod for center wheel</li>
+                <li>Spring tensioning system for consistent ground contact</li>
+            </ul>
+
+            <h3>Installation Steps</h3>
+            <div class="info-box tip">
+                <strong>Tip:</strong> Mount the wheels as far apart as possible to improve accuracy. The ideal configuration has parallel wheels at opposite corners of the robot.
+            </div>
+
+            <ol class="steps">
+                <li>
+                    Mount parallel wheels (left and right):
+                    <ul>
+                        <li>Position wheels parallel to robot's forward direction</li>
+                        <li>Mount them as far apart as possible (ideally 14+ inches)</li>
+                        <li>Ensure they're at the same height from the ground</li>
+                    </ul>
+                </li>
+                <li>
+                    Mount perpendicular (center) wheel:
+                    <ul>
+                        <li>Position wheel 90° to the parallel wheels</li>
+                        <li>Center it between the parallel wheels if possible</li>
+                        <li>Match height with other dead wheels</li>
+                    </ul>
+                </li>
+                <li>
+                    Install encoders:
+                    <ul>
+                        <li>Left encoder → Port 0</li>
+                        <li>Right encoder → Port 1</li>
+                        <li>Center encoder → Port 2</li>
+                        <li>Ensure all wiring is secured and protected</li>
+                    </ul>
+                </li>
+            </ol>
+
+            <div class="info-box warning">
+                <strong>Important:</strong> Always verify that:
+                <ul>
+                    <li>All wheels maintain consistent ground contact</li>
+                    <li>Springs provide enough tension without binding</li>
+                    <li>Wheels spin freely with minimal friction</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="software" class="section">
+            <h2>Software Setup</h2>
+
+            <h3>Initial Configuration</h3>
+            <ol class="steps">
+                <li>
+                    Add required dependencies to your <code>build.dependencies.gradle</code>:
+                    <pre><code>dependencies {
+    implementation 'org.apache.commons:commons-math3:3.6.1'
+    implementation 'com.acmerobotics.dashboard:dashboard:0.4.5'
+}</code></pre>
+                </li>
+                <li>
+                    Create base classes:
+                    <pre><code>// Encoder configuration class
+public class DeadWheelEncoders {
+    public static final double TICKS_PER_REV = 8192.0; // GoBilda encoder
+    public static final double WHEEL_DIAMETER = 38.0; // mm
+    public static final double TICKS_PER_MM = TICKS_PER_REV / (WHEEL_DIAMETER * Math.PI);
+    
+    private DcMotor leftEncoder;
+    private DcMotor rightEncoder;
+    private DcMotor centerEncoder;
+    
+    public DeadWheelEncoders(HardwareMap hardwareMap) {
+        leftEncoder = hardwareMap.get(DcMotor.class, "leftOdometry");
+        rightEncoder = hardwareMap.get(DcMotor.class, "rightOdometry");
+        centerEncoder = hardwareMap.get(DcMotor.class, "centerOdometry");
+        
+        // Configure encoder directions
+        leftEncoder.setDirection(DcMotorSimple.Direction.REVERSE);
+        
+        // Reset encoders
+        resetEncoders();
+    }
+    
+    public void resetEncoders() {
+        leftEncoder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightEncoder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        centerEncoder.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        
+        leftEncoder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rightEncoder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        centerEncoder.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+    }
+}</code></pre>
+                </li>
+            </ol>
+
+            <div class="info-box tip">
+                <strong>Best Practice:</strong> Always implement encoder reset functionality in your autonomous initialization and ensure encoders are properly zeroed before starting any movement.
+            </div>
+        </section>
+
+        <section id="calibration" class="section">
+            <h2>Calibration Process</h2>
+
+            <h3>Lateral Wheel Calibration</h3>
+            <ol class="steps">
+                <li>Position robot against a wall for a straight reference</li>
+                <li>Drive forward exactly 100 inches</li>
+                <li>Record encoder counts from left and right wheels</li>
+                <li>Calculate ticks per inch: (leftCounts + rightCounts) / (2 * distance)</li>
+            </ol>
+
+            <h3>Track Width Calibration</h3>
+            <ol class="steps">
+                <li>Place robot in open area</li>
+                <li>Perform 360° turn</li>
+                <li>Measure actual rotation using IMU</li>
+                <li>Calculate track width using recorded encoder values</li>
+            </ol>
+
+            <h3>Testing and Verification</h3>
+            <div class="info-box note">
+                <strong>Verification Tests:</strong>
+                <ul>
+                    <li>Drive in a 48" square pattern</li>
+                    <li>Execute a figure-8 pattern</li>
+                    <li>Perform multiple 90° turns</li>
+                    <li>Check return-to-origin accuracy</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="troubleshooting" class="section">
+            <h2>Troubleshooting</h2>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Issue</th>
+                        <th>Possible Causes</th>
+                        <th>Solution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Inconsistent Readings</td>
+                        <td>Wheel slippage, inadequate spring tension</td>
+                        <td>Adjust spring tension, check wheel cleanliness</td>
+                    </tr>
+                    <tr>
+                        <td>Position Drift</td>
+                        <td>Incorrect track width, encoder miscalibration</td>
+                        <td>Recalibrate track width, verify encoder counts</td>
+                    </tr>
+                    <tr>
+                        <td>Rotation Inaccuracy</td>
+                        <td>Uneven wheel contact, mechanical binding</td>
+                        <td>Check pod alignment, verify free wheel rotation</td>
+                    </tr>
+                    <tr>
+                        <td>Encoder Errors</td>
+                        <td>Loose wiring, incorrect port configuration</td>
+                        <td>Verify connections, check port assignments</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="code-examples" class="section">
+            <h2>Code Examples</h2>
+
+            <h3>Basic Odometry Implementation</h3>
+            <pre><code>public class OdometryLocalizer {
+    private DeadWheelEncoders encoders;
+    private double lateralDistance; // Distance between parallel wheels
+    private double perpDistance;    // Distance from center to perpendicular wheel
+    
+    // Robot's current position
+    private double x = 0;
+    private double y = 0;
+    private double heading = 0;
+    
+    // Previous encoder positions
+    private int lastLeftPosition = 0;
+    private int lastRightPosition = 0;
+    private int lastPerpendicularPosition = 0;
+    
+    public OdometryLocalizer(DeadWheelEncoders encoders) {
+        this.encoders = encoders;
+        this.lateralDistance = 15.0; // inches
+        this.perpDistance = 7.5;     // inches
+    }
+    
+    public void update() {
+        // Get current encoder positions
+        int leftPos = encoders.getLeftPosition();
+        int rightPos = encoders.getRightPosition();
+        int perpPos = encoders.getPerpendicularPosition();
+        
+        // Calculate encoder deltas
+        int deltaLeft = leftPos - lastLeftPosition;
+        int deltaRight = rightPos - lastRightPosition;
+        int deltaPerp = perpPos - lastPerpendicularPosition;
+        
+        // Convert to inches
+        double deltaLeftInches = encoderTicksToInches(deltaLeft);
+        double deltaRightInches = encoderTicksToInches(deltaRight);
+        double deltaPerpInches = encoderTicksToInches(deltaPerp);
+        
+        // Calculate robot motion
+        double deltaHeading = (deltaRightInches - deltaLeftInches) / lateralDistance;
+        double deltaX = deltaPerpInches - (perpDistance * deltaHeading);
+        double deltaY = (deltaLeftInches + deltaRightInches) / 2.0;
+        
+        // Update pose
+        x += deltaX * Math.cos(heading) - deltaY * Math.sin(heading);
+        y += deltaX * Math.sin(heading) + deltaY * Math.cos(heading);
+        heading += deltaHeading;
+        
+        // Update previous positions
+        lastLeftPosition = leftPos;
+        lastRightPosition = rightPos;
+        lastPerpendicularPosition = perpPos;
+    }
+}</code></pre>
+
+            <h3>Calibration OpMode Example</h3>
+            <pre><code>@TeleOp(name="Dead Wheel Calibration")
+public class DeadWheelCalibrationOpMode extends LinearOpMode {
+    private DeadWheelEncoders encoders;
+    private FtcDashboard dashboard;
+    
+    @Override
+    public void runOpMode() {
+        encoders = new DeadWheelEncoders(hardwareMap);
+        dashboard = FtcDashboard.getInstance();
+        
+        telemetry = new MultipleTelemetry(telemetry, dashboard.getTelemetry());
+        
+        waitForStart();
+        
+        while (opModeIsActive()) {
+            if (gamepad1.a) {
+                // Forward test (100 inches)
+                encoders.resetEncoders();
+                // Drive forward code here
+                sleep(5000); // Wait for completion
+                recordForwardTest();
+            }
+            
+            if (gamepad1.b) {
+                // Turning test
+                encoders.resetEncoders();
+                // Turn 360 degrees code here
+                sleep(5000);
+                recordTurnTest();
+            }
+            
+            updateTelemetry();
+        }
+    }
+    
+    private void updateTelemetry() {
+        telemetry.addData("Left Encoder", encoders.getLeftPosition());
+        telemetry.addData("Right Encoder", encoders.getRightPosition());
+        telemetry.addData("Center Encoder", encoders.getPerpendicularPosition());
+        telemetry.update();
+    }
+}</code></pre>
+
+            <div class="info-box tip">
+                <strong>Pro Tip:</strong> Use FTC Dashboard for real-time visualization of your robot's position and calibration data.
+            </div>
+        </section>
+
+        <section id="advanced-topics" class="section">
+            <h2>Advanced Topics</h2>
+
+            <h3>Motion Profiling Integration</h3>
+            <p>Integrate dead wheel odometry with motion profiling for smooth, accurate autonomous movements:</p>
+            <ol class="steps">
+                <li>
+                    Create a motion profile:
+                    <pre><code>public class MotionProfile {
+    private double maxVelocity;
+    private double maxAcceleration;
+    
+    public MotionProfile(double maxVel, double maxAccel) {
+        this.maxVelocity = maxVel;
+        this.maxAcceleration = maxAccel;
+    }
+    
+    public double getPosition(double time) {
+        // Implementation
+    }
+    
+    public double getVelocity(double time) {
+        // Implementation
+    }
+}</code></pre>
+                </li>
+                <li>
+                    Implement PID control:
+                    <pre><code>public class PIDController {
+    private double kP, kI, kD;
+    private double integral = 0;
+    private double lastError = 0;
+    
+    public PIDController(double kP, double kI, double kD) {
+        this.kP = kP;
+        this.kI = kI;
+        this.kD = kD;
+    }
+    
+    public double calculate(double error, double dt) {
+        integral += error * dt;
+        double derivative = (error - lastError) / dt;
+        lastError = error;
+        
+        return kP * error + kI * integral + kD * derivative;
+    }
+}</code></pre>
+                </li>
+            </ol>
+
+            <h3>Error Correction</h3>
+            <div class="info-box note">
+                <strong>Common Sources of Error:</strong>
+                <ul>
+                    <li>Wheel diameter variations</li>
+                    <li>Floor surface changes</li>
+                    <li>Mechanical play in pods</li>
+                    <li>Temperature effects on electronics</li>
+                </ul>
+            </div>
+
+            <h3>Performance Optimization</h3>
+            <ol class="steps">
+                <li>
+                    Implement bulk sensor reads:
+                    <pre><code>private LynxModule hub;
+hub = hardwareMap.get(LynxModule.class, "Control Hub");
+hub.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);</code></pre>
+                </li>
+                <li>
+                    Use asynchronous processing:
+                    <pre><code>private ExecutorService executor = Executors.newSingleThreadExecutor();
+executor.submit(() -> {
+    // Perform odometry calculations
+    updatePosition();
+});</code></pre>
+                </li>
+            </ol>
+        </section>
+
+        <section id="maintenance" class="section">
+            <h2>Maintenance and Best Practices</h2>
+
+            <h3>Regular Maintenance Checklist</h3>
+            <ul class="steps">
+                <li>Clean dead wheels before each competition match</li>
+                <li>Check spring tension and adjust if necessary</li>
+                <li>Verify encoder connections and wiring</li>
+                <li>Inspect for mechanical wear or damage</li>
+                <li>Calibrate if field surface changes</li>
+            </ul>
+
+            <h3>Competition Preparation</h3>
+            <div class="info-box warning">
+                <strong>Competition Checklist:</strong>
+                <ul>
+                    <li>Perform full calibration on competition field surface</li>
+                    <li>Document all calibration values</li>
+                    <li>Have backup hardware ready</li>
+                    <li>Test autonomous routines with new calibration</li>
+                    <li>Verify odometry accuracy after robot inspection</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="resources" class="section">
+            <h2>Additional Resources</h2>
+            
+            <h3>Useful Tools</h3>
+            <ul class="steps">
+                <li>FTC Dashboard for real-time debugging</li>
+                <li>Excel/Google Sheets for calibration data tracking</li>
+                <li>Python scripts for data analysis</li>
+                <li>CAD files for pod designs</li>
+            </ul>
+
+            <h3>Community Resources</h3>
+            <ul class="steps">
+                <li>FTC Discord Server</li>
+                <li>Game Manual 0</li>
+                <li>FTC Forum</li>
+                <li>Team GitHub repositories</li>
+            </ul>
+        </section>
+
+        <section id="faq" class="section">
+            <h2>Frequently Asked Questions</h2>
+
+            <div class="info-box note">
+                <strong>Q: How often should I recalibrate?</strong>
+                <p>A: Recalibrate whenever you change fields or notice position drift. At minimum, calibrate at the start of each competition.</p>
+            </div>
+
+            <div class="info-box note">
+                <strong>Q: What accuracy can I expect?</strong>
+                <p>A: Well-calibrated systems typically achieve ±0.5 inches of position accuracy and ±1 degree of heading accuracy over a 100-inch path.</p>
+            </div>
+
+            <div class="info-box note">
+                <strong>Q: How do I handle different field surfaces?</strong>
+                <p>A: Create and store different calibration profiles for each surface type you commonly encounter.</p>
+            </div>
+        </section>
 
         <a href="index.html" class="button">Back to Home</a>
-    </div>
+    </main>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
 </body>
 </html>
