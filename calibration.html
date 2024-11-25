@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead Wheel Odometry Calibration</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <!-- Previous styles remain the same -->
+    <style>
+        /* ... Previous styles ... */
+        .calibration-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .parameter-input {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .tuning-graph {
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        .test-progress {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .progress-bar {
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <!-- Previous header and connection UI -->
+
+    <div class="container">
+        <div class="test-selector">
+            <select id="calibration-test" onchange="updateTestDetails()">
+                <option value="">Select Calibration Test</option>
+                <option value="lateral">Lateral Wheel Calibration</option>
+                <option value="forward">Forward Test (Track Width)</option>
+                <option value="perpendicular">Perpendicular Wheel Calibration</option>
+                <option value="turn">Turn Test</option>
+                <option value="localization">Full Localization Test</option>
+            </select>
+
+            <div id="test-details" class="test-details">
+                <!-- Test details populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const calibrationTests = {
+        lateral: {
+            name: 'Lateral Wheel Calibration',
+            description: 'Calibrates the lateral dead wheel ticks per inch',
+            steps: [
+                'Place robot against the wall as a reference point',
+                'Robot will drive forward 100 inches',
+                'Measure the actual distance traveled',
+                'This will calibrate your lateral dead wheels'
+            ],
+            parameters: {
+                distance: 100,
+                speed: 0.4,
+                timeout: 10000
+            },
+            generateCommand(params) {
+                return {
+                    type: 'lateral_calibration',
+                    distance: params.distance,
+                    speed: params.speed,
+                    timeout: params.timeout
+                };
+            }
+        },
+        forward: {
+            name: 'Forward Test (Track Width)',
+            description: 'Calibrates the track width for accurate turning',
+            steps: [
+                'Place robot in an open area',
+                'Robot will perform a 360-degree turn',
+                'This will calibrate your track width parameter'
+            ],
+            parameters: {
+                turns: 1,
+                speed: 0.4,
+                timeout: 8000
+            },
+            generateCommand(params) {
+                return {
+                    type: 'track_width_calibration',
+                    turns: params.turns,
+                    speed: params.speed,
+                    timeout: params.timeout
+                };
+            }
+        },
+        perpendicular: {
+            name: 'Perpendicular Wheel Calibration',
+            description: 'Calibrates the perpendicular (center) dead wheel',
+            steps: [
+                'Place robot in an open area',
+                'Robot will strafe right 50 inches',
+                'Measure the actual distance strafed',
+                'This will calibrate your perpendicular wheel'
+            ],
+            parameters: {
+                distance: 50,
+                speed: 0.4,
+                timeout: 8000
+            },
+            generateCommand(params) {
+                return {
+                    type: 'perpendicular_calibration',
+                    distance: params.distance,
+                    speed: params.speed,
+                    timeout: params.timeout
+                };
+            }
+        },
+        turn: {
+            name: 'Turn Test',
+            description: 'Verifies turning accuracy with dead wheel odometry',
+            steps: [
+                'Place robot in an open area',
+                'Robot will perform a series of turns (90°, 180°, 360°)',
+                'Measures accuracy of turns using dead wheel readings'
+            ],
+            parameters: {
+                angles: [90, 180, 360],
+                speed: 0.4,
+                timeout: 15000
+            },
+            generateCommand(params) {
+                return {
+                    type: 'turn_test',
+                    angles: params.angles,
+                    speed: params.speed,
+                    timeout: params.timeout
+                };
+            }
+        },
+        localization: {
+            name: 'Full Localization Test',
+            description: 'Verifies overall dead wheel odometry accuracy',
+            steps: [
+                'Place robot at field origin (0,0)',
+                'Robot will perform a complex path',
+                'Returns to origin to measure drift',
+                'Tests overall system accuracy'
+            ],
+            parameters: {
+                pathType: 'square', // or 'figure8'
+                sideLength: 48,
+                speed: 0.4,
+                timeout: 20000
+            },
+            generateCommand(params) {
+                return {
+                    type: 'localization_test',
+                    pathType: params.pathType,
+                    sideLength: params.sideLength,
+                    speed: params.speed,
+                    timeout: params.timeout
+                };
+            }
+        }
+    };
+
+    let testResults = {
+        lateral: null,
+        forward: null,
+        perpendicular: null,
+        turn: null,
+        localization: null
+    };
+
+    function updateTestDetails() {
+        const testSelect = document.getElementById('calibration-test');
+        const testDetails = document.getElementById('test-details');
+        const selectedTest = calibrationTests[testSelect.value];
+
+        if (!selectedTest) {
+            testDetails.style.display = 'none';
+            return;
+        }
+
+        testDetails.style.display = 'block';
+        testDetails.innerHTML = `
+            <div class="calibration-card">
+                <h3>${selectedTest.name}</h3>
+                <p>${selectedTest.description}</p>
+                
+                <h4>Steps:</h4>
+                <ol>
+                    ${selectedTest.steps.map(step => `<li>${step}</li>`).join('')}
+                </ol>
+                
+                <div class="parameter-input">
+                    ${Object.entries(selectedTest.parameters).map(([key, value]) => `
+                        <div>
+                            <label for="${key}">${key.charAt(0).toUpperCase() + key.slice(1)}:</label>
+                            <input type="number" id="${key}" value="${value}" 
+                                   ${key === 'timeout' ? 'step="1000"' : 'step="0.1"'}>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <button class="button" onclick="runCalibrationTest('${testSelect.value}')">
+                    Start Test
+                </button>
+            </div>
+            
+            <div id="results-${testSelect.value}" class="calibration-card" style="display: none;">
+                <h4>Results:</h4>
+                <div class="tuning-graph">
+                    <canvas id="graph-${testSelect.value}"></canvas>
+                </div>
+                <div id="numeric-results-${testSelect.value}"></div>
+            </div>
+        `;
+    }
+
+    async function runCalibrationTest(testType) {
+        if (!isConnected) {
+            alert('Please connect to robot first');
+            return;
+        }
+
+        const selectedTest = calibrationTests[testType];
+        const parameters = {};
+        
+        // Gather parameters from inputs
+        Object.keys(selectedTest.parameters).forEach(key => {
+            parameters[key] = parseFloat(document.getElementById(key).value);
+        });
+
+        // Generate command for robot
+        const command = selectedTest.generateCommand(parameters);
+        
+        // Send to robot
+        ws.send(JSON.stringify(command));
+        
+        // Show progress
+        showTestProgress(testType, command.timeout);
+    }
+
+    function showTestProgress(testType, timeout) {
+        const resultsDiv = document.getElementById(`results-${testType}`);
+        resultsDiv.style.display = 'block';
+        
+        const progressBar = document.createElement('div');
+        progressBar.innerHTML = `
+            <div class="test-progress">
+                <p>Test in progress...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+        `;
+        resultsDiv.prepend(progressBar);
+
+        const fill = progressBar.querySelector('.progress-fill');
+        const startTime = Date.now();
+        
+        const updateProgress = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min((elapsed / timeout) * 100, 100);
+            fill.style.width = `${progress}%`;
+
+            if (progress < 100) {
+                requestAnimationFrame(updateProgress);
+            }
+        };
+
+        requestAnimationFrame(updateProgress);
+    }
+
+    function handleCalibrationResult(data) {
+        const testType = data.testType;
+        testResults[testType] = data.results;
+
+        const resultsDiv = document.getElementById(`numeric-results-${testType}`);
+        const graphCanvas = document.getElementById(`graph-${testType}`);
+
+        // Update results display
+        resultsDiv.innerHTML = `
+            <h4>Calibration Results:</h4>
+            <pre>${JSON.stringify(data.results, null, 2)}</pre>
+            
+            ${data.recommendations ? `
+                <h4>Recommended Changes:</h4>
+                <pre>${JSON.stringify(data.recommendations, null, 2)}</pre>
+                <button class="button" onclick='applyRecommendations(${JSON.stringify(data.recommendations)})'>
+                    Apply Changes
+                </button>
+            ` : ''}
+        `;
+
+        // Update graph based on test type
+        updateGraph(testType, data.results, graphCanvas);
+    }
+
+    function updateGraph(testType, results, canvas) {
+        // Different graph configurations based on test type
+        const graphConfigs = {
+            lateral: {
+                type: 'line',
+                data: {
+                    labels: results.readings.map((_, i) => i),
+                    datasets: [{
+                        label: 'Encoder Ticks',
+                        data: results.readings,
+                        borderColor: '#2196F3'
+                    }]
+                }
+            },
+            // ... similar configs for other test types
+        };
+
+        const config = graphConfigs[testType] || graphConfigs.lateral;
+        new Chart(canvas, config);
+    }
+
+    // ... rest of the WebSocket handling code ...
+</script>
+</body>
+</html>

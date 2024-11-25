@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 1200px;
+        }
+
+        .field-container {
+            position: relative;
+            width: 800px;
+            height: 800px;
+            margin: 0 auto;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><rect width="800" height="800" fill="%23333"/><rect x="0" y="0" width="266" height="800" fill="%230000FF" opacity="0.2"/><rect x="534" y="0" width="266" height="800" fill="%23FF0000" opacity="0.2"/></svg>');
+            border: 2px solid #333;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .cell {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .cell:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .robot {
+            width: 40px;
+            height: 40px;
+            background-color: #FFD700;
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .claw-indicator {
+            position: absolute;
+            top: -20px;
+            font-size: 14px;
+            color: white;
+        }
+
+        .lift-indicator {
+            position: absolute;
+            bottom: -20px;
+            font-size: 14px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .path-marker {
+            width: 10px;
+            height: 10px;
+            background-color: rgba(255, 215, 0, 0.3);
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .reset-btn {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .action-btn {
+            background-color: #2196f3;
+            color: white;
+        }
+
+        .play-btn {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .moves-list {
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 10px;
+            background-color: #1e1e1e;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <button class="reset-btn" onclick="resetField()">Reset Field</button>
+            <button class="action-btn" onclick="toggleClaw()">Toggle Claw (C)</button>
+            <button class="action-btn" onclick="setLiftHeight()">Set Lift Height (L)</button>
+            <button class="play-btn" onclick="playSequence()">Play Sequence (P)</button>
+        </div>
+        
+        <div class="field-container">
+            <div class="grid" id="grid"></div>
+            <div class="robot" id="robot">
+                <div class="claw-indicator">✊</div>
+                <div class="lift-indicator">0"</div>
+            </div>
+        </div>
+        
+        <div class="moves-list" id="moves"></div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 6;
+        let robotPos = { x: 0, y: 0 };
+        let moves = [];
+        let isClawClosed = false;
+        let liftHeight = 0;
+        let isAnimating = false;
+        let fieldElement;
+        let robotElement;
+        
+        function initializeField() {
+            fieldElement = document.querySelector('.field-container');
+            robotElement = document.getElementById('robot');
+            const grid = document.getElementById('grid');
+            
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    cell.addEventListener('click', handleCellClick);
+                    grid.appendChild(cell);
+                }
+            }
+            
+            updateRobotPosition();
+        }
+        
+        function handleCellClick(event) {
+            if (isAnimating) return;
+            
+            const cell = event.target;
+            const newX = parseInt(cell.dataset.x);
+            const newY = parseInt(cell.dataset.y);
+            
+            if (newX === robotPos.x && newY === robotPos.y) return;
+            
+            const dx = newX - robotPos.x;
+            const dy = newY - robotPos.y;
+            
+            // Add moves for each step
+            if (dx !== 0) {
+                moves.push({
+                    type: 'move',
+                    direction: dx > 0 ? 'RIGHT' : 'LEFT',
+                    distance: Math.abs(dx)
+                });
+            }
+            if (dy !== 0) {
+                moves.push({
+                    type: 'move',
+                    direction: dy > 0 ? 'BACK' : 'FORWARD',
+                    distance: Math.abs(dy)
+                });
+            }
+            
+            robotPos = { x: newX, y: newY };
+            updateRobotPosition();
+            updateMovesList();
+            addPathMarker(newX, newY);
+        }
+        
+        function updateRobotPosition() {
+            const cellWidth = fieldElement.offsetWidth / GRID_SIZE;
+            const cellHeight = fieldElement.offsetHeight / GRID_SIZE;
+            
+            const x = (robotPos.x + 0.5) * cellWidth;
+            const y = (robotPos.y + 0.5) * cellHeight;
+            
+            robotElement.style.left = x + 'px';
+            robotElement.style.top = y + 'px';
+        }
+        
+        function addPathMarker(x, y) {
+            const marker = document.createElement('div');
+            marker.className = 'path-marker';
+            
+            const cellWidth = fieldElement.offsetWidth / GRID_SIZE;
+            const cellHeight = fieldElement.offsetHeight / GRID_SIZE;
+            
+            marker.style.left = ((x + 0.5) * cellWidth) + 'px';
+            marker.style.top = ((y + 0.5) * cellHeight) + 'px';
+            
+            fieldElement.appendChild(marker);
+        }
+        
+        function toggleClaw() {
+            if (isAnimating) return;
+            isClawClosed = !isClawClosed;
+            moves.push({
+                type: 'claw',
+                state: !isClawClosed
+            });
+            updateClawIndicator();
+            updateMovesList();
+        }
+        
+        function setLiftHeight() {
+            if (isAnimating) return;
+            const height = prompt("Enter lift height in inches:", liftHeight);
+            if (height !== null && !isNaN(height)) {
+                liftHeight = parseFloat(height);
+                moves.push({
+                    type: 'lift',
+                    height: liftHeight
+                });
+                updateLiftIndicator();
+                updateMovesList();
+            }
+        }
+        
+        function updateClawIndicator() {
+            const indicator = robotElement.querySelector('.claw-indicator');
+            indicator.textContent = isClawClosed ? '✊' : '👐';
+        }
+        
+        function updateLiftIndicator() {
+            const indicator = robotElement.querySelector('.lift-indicator');
+            indicator.textContent = `${liftHeight}"`;
+        }
+        
+        async function playSequence() {
+            if (isAnimating) return;
+            isAnimating = true;
+            
+            // Store original state
+            const originalState = {
+                pos: { ...robotPos },
+                claw: isClawClosed,
+                lift: liftHeight
+            };
+            
+            // Clear path markers
+            document.querySelectorAll('.path-marker').forEach(marker => marker.remove());
+            
+            // Reset position
+            robotPos = { x: 0, y: 0 };
+            updateRobotPosition();
+            
+            for (const move of moves) {
+                await executeMove(move);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Restore original state
+            robotPos = originalState.pos;
+            isClawClosed = originalState.claw;
+            liftHeight = originalState.lift;
+            updateRobotPosition();
+            updateClawIndicator();
+            updateLiftIndicator();
+            
+            isAnimating = false;
+        }
+        
+        async function executeMove(move) {
+            switch (move.type) {
+                case 'move':
+                    const steps = move.distance;
+                    for (let i = 0; i < steps; i++) {
+                        switch (move.direction) {
+                            case 'FORWARD': robotPos.y--; break;
+                            case 'BACK': robotPos.y++; break;
+                            case 'LEFT': robotPos.x--; break;
+                            case 'RIGHT': robotPos.x++; break;
+                        }
+                        updateRobotPosition();
+                        addPathMarker(robotPos.x, robotPos.y);
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                    break;
+                    
+                case 'claw':
+                    isClawClosed = !move.state;
+                    updateClawIndicator();
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                    break;
+                    
+                case 'lift':
+                    liftHeight = move.height;
+                    updateLiftIndicator();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    break;
+            }
+        }
+        
+        function updateMovesList() {
+            const movesList = document.getElementById('moves');
+            const code = moves.map(move => {
+                switch (move.type) {
+                    case 'move':
+                        return `    robot.move(Robot.Direction.${move.direction}, ${move.distance * 24}.0, 0.6);`;
+                    case 'claw':
+                        return `    robot.setClaw(${move.state});`;
+                    case 'lift':
+                        return `    robot.setLinearSlideHeight(${move.height});`;
+                }
+            });
+            
+            movesList.innerHTML = [
+                'if (opModeIsActive()) {',
+                ...code,
+                '}'
+            ].join('\n');
+        }
+        
+        function resetField() {
+            robotPos = { x: 0, y: 0 };
+            moves = [];
+            isClawClosed = false;
+            liftHeight = 0;
+            document.querySelectorAll('.path-marker').forEach(marker => marker.remove());
+            updateRobotPosition();
+            updateClawIndicator();
+            updateLiftIndicator();
+            updateMovesList();
+        }
+        
+        // Initialize field and add keyboard controls
+        document.addEventListener('DOMContentLoaded', initializeField);
+        document.addEventListener('keydown', (e) => {
+            if (isAnimating) return;
+            
+            switch (e.key.toLowerCase()) {
+                case 'c': toggleClaw(); break;
+                case 'l': setLiftHeight(); break;
+                case 'p': playSequence(); break;
+                case 'r': resetField(); break;
+            }
+        });
+    </script>
+</body>
+</html>
